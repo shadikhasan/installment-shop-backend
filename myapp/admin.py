@@ -1,13 +1,7 @@
 from django.contrib import admin
-from .models import Customer, Product, Purchase, Installment
+from .models import  Product, Purchase, Installment
 
 # Register Customer model
-@admin.register(Customer)
-class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_verified', 'date_joined')  # Display these fields in the list view
-    search_fields = ('username', 'email', 'first_name', 'last_name')  # Search functionality
-    list_filter = ('is_verified', 'date_joined')  # Filter by is_verified and date_joined
-
 # Register Product model
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
