@@ -10,8 +10,8 @@ router.register(r'products', ProductViewSet, basename='product')
 urlpatterns = [
     path('', include(router.urls)),
     
-    path('installments/next-due/', NextDueInstallmentView.as_view(), name='next-due-installment'),
     path('installments/', AllInstallmentsView.as_view(), name='all-installments'),
+    path('installments/next-due/', NextDueInstallmentView.as_view(), name='next-due-installment'),
     path('installments/pay/<int:installment_id>/', PayInstallmentView.as_view(), name='pay-installment'),
     
     path('purchases/', views.PurchaseListView.as_view()),
