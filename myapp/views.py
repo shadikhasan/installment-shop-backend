@@ -113,6 +113,7 @@ class NextDueInstallmentView(APIView):
 
         # Serialize the next due installment data
         installment_data = {
+            'product_name': next_due_installment.purchase.product.name,
             "id": next_due_installment.id,
             "installment_number": next_due_installment.installment_number,
             "due_amount": str(next_due_installment.due_amount),
