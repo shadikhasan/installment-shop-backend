@@ -11,27 +11,13 @@ class ProductAdmin(admin.ModelAdmin):
 # Register Purchase model
 @admin.register(Purchase)
 class PurchaseAdmin(admin.ModelAdmin):
-    list_display = (
-        'id',
-        'customer',
-        'product',
-        'quantity',
-        'total_price',
-        'first_installment_amount',
-        'remaining_amount',
-        'remaining_amount_per_installment',
-        'installment_count',
-        'purchase_date',
-    )
+    list_display = [field.name for field in Purchase._meta.fields]
     list_select_related = ('customer', 'product')
     search_fields = ('customer__username', 'customer__email', 'product__name')
     list_filter = ('purchase_date', 'installment_count')
     date_hierarchy = 'purchase_date'
     ordering = ('-purchase_date',)
     
-    def remaining_amount(self, obj):
-        return obj.remaining_installment_amount
-    remaining_amount.short_description = 'Remaining Amount'
 
 # Register Installment model
 @admin.register(Installment)

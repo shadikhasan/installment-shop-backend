@@ -11,19 +11,72 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class PurchaseSerializer(serializers.ModelSerializer):
     customer = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
+    product_name = serializers.CharField(source='product.name', read_only=True)
     class Meta:
         model = Purchase
         fields = '__all__'
         read_only_fields = ['total_price']
+        
+    def validate_installment_count(self, value):
+        if value > 2:
+            raise serializers.ValidationError("Installment count cannot be more than 2.")
+        return value
+    
+    def validate_first_installment_amount(self, value):
+        if value < 1:
+            print("error: First Installment Amount can not less than 1.")
+            raise serializers.ValidationError("First Installment Amount can not less than 1.")
+        return value
 
 
+    
 class InstallmentSerializer(serializers.ModelSerializer):
+    product_name = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+    quantity = serializers.SerializerMethodField()
+
     class Meta:
         model = Installment
-        fields = '__all__'
+        fields = [
+            'id',
+            'product_name',
+            'total_price',
+            'quantity',
+            'purchase',
+            'installment_number',
+            'paid_amount',
+            'due_amount',
+            'due_date',
+            'status',
+            'payment_date',
+        ]
         read_only_fields = ['due_amount', 'status', 'due_date', 'payment_date']
 
+    def get_product_name(self, obj):
+        return obj.purchase.product.name
 
-class InstallmentPaySerializer(serializers.Serializer):
-    paid_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    def get_total_price(self, obj):
+        return str(obj.purchase.total_price)
+
+    def get_quantity(self, obj):
+        return str(obj.purchase.quantity)
+
+from rest_framework import serializers
+from datetime import datetime
+from django.utils import timezone
+
+class PayInstallmentSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+    def validate_amount(self, value):
+        installment = self.context.get('installment')
+        if not installment:
+            raise serializers.ValidationError("Installment context not provided.")
+        
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive.")
+        
+        if value > installment.due_amount:
+            raise serializers.ValidationError(f"Payment cannot exceed the due amount ({installment.due_amount}).")
+        
+        return value

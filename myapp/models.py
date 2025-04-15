@@ -1,10 +1,10 @@
-from datetime import timedelta
-from decimal import Decimal
-from django.utils import timezone
-from django.core.exceptions import ValidationError
-from django.contrib.auth.models import AbstractUser
 from django.db import models
-from accounts.models import Customer
+from django.forms import ValidationError
+from django.utils import timezone
+from decimal import Decimal
+from datetime import timedelta
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class Product(models.Model):
@@ -17,72 +17,67 @@ class Product(models.Model):
 
 
 class Purchase(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='purchases')
+    STATUS_CHOICES = [
+        ('paid', 'Paid'),
+        ('due', 'Due'),
+    ]
+
+    customer = models.ForeignKey('accounts.Customer', on_delete=models.CASCADE, related_name='purchases')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='purchases')
     quantity = models.PositiveIntegerField(default=1)
     purchase_date = models.DateTimeField(default=timezone.now)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
     first_installment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     installment_count = models.PositiveIntegerField()
-    
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='due', editable=False)
+
     def clean(self):
-        if self.installment_count > 2:
-            raise ValidationError("Installment count cannot be more than 2.")
+        # Ensure necessary fields are not None
+        if self.product and self.quantity and self.first_installment_amount is not None:
+            temp_total_price = self.product.price * self.quantity
+            expected_min_first_installment = temp_total_price * Decimal('0.30')
 
+            if self.first_installment_amount < expected_min_first_installment:
+                raise ValidationError(
+                    f"First installment must be at least 30% of total price ({expected_min_first_installment:.2f})."
+                )
+            if self.first_installment_amount > temp_total_price:
+                raise ValidationError("First installment cannot exceed total price.")
+            if self.installment_count < 1:
+                raise ValidationError("Installment count must be at least 1.")
 
+        
+    def save(self, *args, **kwargs):
+        if self.product and self.quantity:
+            self.total_price = self.product.price * self.quantity
+        self.full_clean()  # includes clean()
+        super().save(*args, **kwargs)
+
+    
     def __str__(self):
         return f'{self.customer.email} - {self.product.name} x {self.quantity}'
 
-    def save(self, *args, **kwargs):
-        self.total_price = self.product.price * self.quantity
-        super().save(*args, **kwargs)
-
-    @property
-    def remaining_installment_amount(self):
-        """Total remaining amount after the first installment."""
-        return self.total_price - self.first_installment_amount
-    @property
-    def remaining_amount_per_installment(self):
-        """Each remaining installment amount, evenly split."""
-        if self.installment_count > 1:
-            return self.remaining_installment_amount / (self.installment_count - 1)
-        return 0
-
 
 class Installment(models.Model):
-    
     STATUS_CHOICES = [
         ('paid', 'Paid'),
         ('due', 'Due'),
     ]
-    
+
     purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='installments')
     installment_number = models.PositiveIntegerField()
-    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     due_amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
-    due_date = models.DateTimeField()
+    due_date = models.DateTimeField()  # No default anymore
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, editable=False, default='due')
     payment_date = models.DateTimeField(null=True, blank=True)
 
-    def save(self, *args, **kwargs):
-        # Calculate due_amount and due_date based on installment number
-        if self.installment_number == 1:
-            self.due_amount = self.purchase.remaining_installment_amount
-            self.due_date = self.purchase.purchase_date
-        else:
-            self.due_amount = self.purchase.total_price - (self.purchase.first_installment_amount + self.paid_amount)
-            self.due_date = self.purchase.purchase_date + timedelta(days=30 * (self.installment_number - 1))
-
-        # Update status based on the paid_amount
-        if self.due_amount == 0:
-            self.status = 'paid'
-            if not self.payment_date:
-                self.payment_date = timezone.now()  # Set payment date when paid
-        else:
-            self.status = 'due'
-            self.payment_date = None  # Reset payment date if not fully paid
-        
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return f'{self.purchase.product.name} - Installment {self.installment_number} ({self.status})'
+
+    def clean(self):
+        if self.first_installment_amount > self.total_price:
+            raise ValidationError("First installment can't exceed total price.")
+        if self.installment_count < 1:
+            raise ValidationError("Installment count must be at least 1.")
+
