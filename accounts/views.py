@@ -1,10 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import permissions
 from rest_framework import status
 from .serializers import RegisterSerializer, OTPVerifySerializer, LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from .models import Customer
+from rest_framework.permissions import IsAuthenticated
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -37,3 +39,21 @@ class LoginView(APIView):
             return Response(tokens)
         return Response(serializer.errors, status=400)
 
+class ProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        profile_data = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'date_joined': user.date_joined,
+            
+            'is_verified': user.is_verified,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+        }
+        return Response(profile_data)

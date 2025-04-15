@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import viewsets
 from .models import Purchase, Installment, Product
 from .serializers import (
     PurchaseSerializer, InstallmentSerializer,
@@ -12,11 +13,14 @@ from django.db.models import Sum
 from datetime import timedelta
 
 
-class ProductListView(generics.ListCreateAPIView):
+class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAdminUser]
-
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]  # Any user can view products
+        return [permissions.IsAdminUser()]  # Only admins can create, update, or delete products
 
 class PurchaseCreateView(generics.CreateAPIView):
     queryset = Purchase.objects.all()
