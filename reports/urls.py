@@ -7,5 +7,7 @@ urlpatterns = [
     
     path('weekly/', views.WeeklyReportView.as_view()),
     path('monthly/', views.MonthlyReportView.as_view()),
+    
+    path('chart/summary/', views.MonthlySummaryChartView.as_view()),
 
 ]
