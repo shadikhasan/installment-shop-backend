@@ -18,9 +18,7 @@ urlpatterns = [
     path('purchases/my/', views.MyPurchaseListView.as_view()),
     path('purchases/create/', views.PurchaseCreateView.as_view()),
     
-    path('reports/weekly/', views.WeeklyReportView.as_view()),
-    path('reports/monthly/', views.MonthlyReportView.as_view()),
-    
     path('public/global-summary/', GlobalDashboardSummaryView.as_view(), name='global-summary'),
     path('user/summary/', UserDashboardSummaryView.as_view(), name='user-summary'),
+    path('user-stats/', UserStatsAPIView.as_view(), name='user-stats'),
 ]

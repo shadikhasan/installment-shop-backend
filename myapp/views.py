@@ -143,28 +143,6 @@ class AllInstallmentsView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class WeeklyReportView(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def get(self, request):
-        start = timezone.now() - timedelta(days=7)
-        data = Installment.objects.filter(payment_date__gte=start).aggregate(
-            total_paid=Sum('paid_amount'),
-            total_due=Sum('due_amount')
-        )
-        return Response(data)
-
-class MonthlyReportView(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def get(self, request):
-        start = timezone.now() - timedelta(days=30)
-        data = Installment.objects.filter(payment_date__gte=start).aggregate(
-            total_paid=Sum('paid_amount'),
-            total_due=Sum('due_amount')
-        )
-        return Response(data)
-
 class UserDashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -200,4 +178,24 @@ class GlobalDashboardSummaryView(APIView):
 
         return Response({
             "total_products": total_products
+        })
+
+
+from django.contrib.auth import get_user_model     
+User = get_user_model()
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+
+class UserStatsAPIView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        total_users = User.objects.count()
+        verified_users = User.objects.filter(is_verified=True).count()
+        not_verified_users = total_users - verified_users
+
+        return Response({
+            "total_users": total_users,
+            "verified_users": verified_users,
+            "not_verified_users": not_verified_users,
         })
