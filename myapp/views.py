@@ -6,7 +6,7 @@ from .models import Purchase, Installment, Product
 from rest_framework.exceptions import PermissionDenied
 from .serializers import *
 from django.utils import timezone
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Sum
 from datetime import timedelta
 from rest_framework import viewsets, permissions, status
@@ -164,3 +164,40 @@ class MonthlyReportView(APIView):
             total_due=Sum('due_amount')
         )
         return Response(data)
+
+class UserDashboardSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        total_due = Installment.objects.filter(purchase__customer=user).aggregate(
+            total_due=Sum('due_amount')
+        )['total_due'] or 0
+
+        total_paid = Installment.objects.filter(purchase__customer=user).aggregate(
+            total_paid=Sum('paid_amount')
+        )['total_paid'] or 0
+
+        total_purchase = Purchase.objects.filter(customer=user).count()
+
+        installment_left = Installment.objects.filter(purchase__customer=user, status='due').count()
+        installment_paid = Installment.objects.filter(purchase__customer=user, status='paid').count()
+
+        return Response({
+            "total_due": total_due,
+            "total_paid": total_paid,
+            "total_purchase": total_purchase,
+            "installment_left": installment_left,
+            "installment_paid": installment_paid
+        })
+
+class GlobalDashboardSummaryView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        total_products = Product.objects.count()
+
+        return Response({
+            "total_products": total_products
+        })

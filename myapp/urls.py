@@ -20,4 +20,7 @@ urlpatterns = [
     
     path('reports/weekly/', views.WeeklyReportView.as_view()),
     path('reports/monthly/', views.MonthlyReportView.as_view()),
+    
+    path('public/global-summary/', GlobalDashboardSummaryView.as_view(), name='global-summary'),
+    path('user/summary/', UserDashboardSummaryView.as_view(), name='user-summary'),
 ]
