@@ -57,3 +57,23 @@ class ProfileView(APIView):
             'is_superuser': user.is_superuser,
         }
         return Response(profile_data)
+    
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        data = request.data
+
+        # Allow updating first_name and last_name only
+        allowed_fields = ['first_name', 'last_name']
+        updated_fields = {}
+
+        for field in allowed_fields:
+            if field in data:
+                setattr(user, field, data[field])
+                updated_fields[field] = data[field]
+
+        user.save()
+
+        return Response({
+            "message": "Profile updated successfully",
+            "updated_fields": updated_fields
+        }, status=status.HTTP_200_OK)

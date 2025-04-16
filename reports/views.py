@@ -109,6 +109,7 @@ class MonthlyReportView(APIView):
 
 class MonthlySummaryChartView(APIView):
     permission_classes = [IsAdminUser]
+    
     def get(self, request):
         labels = []
         datasets = defaultdict(list)
