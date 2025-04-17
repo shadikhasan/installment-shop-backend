@@ -2,39 +2,40 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from decimal import Decimal
 from datetime import timedelta
-
 from .models import Purchase, Installment
-
 
 @receiver(post_save, sender=Purchase)
 def create_installments(sender, instance, created, **kwargs):
-    if created:
-        # Step 1: Create the first installment (paid)
-        Installment.objects.create(
-            purchase=instance,
-            installment_number=0,
-            paid_amount=instance.first_installment_amount,  # Customer paid amount
-            due_amount=Decimal('0.00'),
-            due_date=instance.purchase_date,
-            payment_date=instance.purchase_date,
-            status='paid'
-        )
+    print("✅ Signal triggered for Purchase:", instance.id)
 
-        # Step 2: Calculate remaining balance and per installment amount
-        remaining_balance = instance.total_price - instance.first_installment_amount
-        if instance.installment_count > 1:  # Avoid division by zero
-            per_installment = (remaining_balance / (instance.installment_count - 1)).quantize(Decimal('0.01'))
+    # 🔒 Prevent duplicate installments if already created
+    if not created or Installment.objects.filter(purchase=instance).exists():
+        print("⚠️ Skipping signal: Installments already exist or this isn't a new purchase.")
+        return
 
-            # Step 3: Create remaining installments (due)
-            for i in range(1, instance.installment_count):
-                due_date = instance.purchase_date + timedelta(days=30 * i)  # Set due date as 30 days apart
-                
-                # Create installment with due amount
-                Installment.objects.create(
-                    purchase=instance,
-                    installment_number=i,
-                    paid_amount=Decimal('0.00'),
-                    due_amount=per_installment,
-                    due_date=due_date,
-                    status='due'
-                )
+    # Step 1: First installment (paid)
+    Installment.objects.create(
+        purchase=instance,
+        installment_number=1,  # Changed from 0 → 1 for consistency
+        paid_amount=instance.first_installment_amount,
+        due_amount=Decimal('0.00'),
+        due_date=instance.purchase_date,
+        payment_date=instance.purchase_date,
+        status='paid'
+    )
+
+    # Step 2: Remaining installments (due)
+    remaining_balance = instance.total_price - instance.first_installment_amount
+    if instance.installment_count > 1:
+        per_installment = (remaining_balance / (instance.installment_count - 1)).quantize(Decimal('0.01'))
+
+        for i in range(2, instance.installment_count + 1):
+            due_date = instance.purchase_date + timedelta(days=30 * (i - 1))
+            Installment.objects.create(
+                purchase=instance,
+                installment_number=i,
+                paid_amount=Decimal('0.00'),
+                due_amount=per_installment,
+                due_date=due_date,
+                status='due'
+            )

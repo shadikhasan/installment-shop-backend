@@ -82,3 +82,10 @@ class Installment(models.Model):
             raise ValidationError("Due amount cannot be negative.")
         if self.paid_amount < 0:
             raise ValidationError("Paid amount cannot be negative.")
+        
+    def mark_as_paid(self):
+        """Mark installment as paid and set payment date."""
+        if self.due_amount <= 0:
+            self.status = 'paid'
+            self.payment_date = timezone.now()
+            self.save()
