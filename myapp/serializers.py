@@ -18,8 +18,9 @@ class PurchaseSerializer(serializers.ModelSerializer):
         read_only_fields = ['total_price']
         
     def validate_installment_count(self, value):
-        if value > 2:
-            raise serializers.ValidationError("Installment count cannot be more than 2.")
+        if value < 1:
+            print("error: Installment count cannot be less than 1.")
+            raise serializers.ValidationError("Installment count cannot be less than 1.")
         return value
     
     def validate_first_installment_amount(self, value):
@@ -60,10 +61,6 @@ class InstallmentSerializer(serializers.ModelSerializer):
 
     def get_quantity(self, obj):
         return str(obj.purchase.quantity)
-
-from rest_framework import serializers
-from datetime import datetime
-from django.utils import timezone
 
 class PayInstallmentSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)

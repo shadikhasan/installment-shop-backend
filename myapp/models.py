@@ -71,13 +71,14 @@ class Installment(models.Model):
     due_date = models.DateTimeField()  # No default anymore
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, editable=False, default='due')
     payment_date = models.DateTimeField(null=True, blank=True)
+    late_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))  # New
+
 
     def __str__(self):
         return f'{self.purchase.product.name} - Installment {self.installment_number} ({self.status})'
 
     def clean(self):
-        if self.first_installment_amount > self.total_price:
-            raise ValidationError("First installment can't exceed total price.")
-        if self.installment_count < 1:
-            raise ValidationError("Installment count must be at least 1.")
-
+        if self.due_amount < 0:
+            raise ValidationError("Due amount cannot be negative.")
+        if self.paid_amount < 0:
+            raise ValidationError("Paid amount cannot be negative.")

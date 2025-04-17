@@ -17,6 +17,10 @@ from decimal import Decimal
 from django.utils import timezone
 from .models import Installment
 from .serializers import *
+from django.contrib.auth import get_user_model     
+
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
 
 
 from rest_framework.exceptions import NotAuthenticated
@@ -62,31 +66,59 @@ class PayInstallmentView(APIView):
 
     def post(self, request, installment_id):
         user = request.user
-        installment = Installment.objects.filter(id=installment_id, purchase__customer=user, status='due').first()
+        installment = Installment.objects.filter(
+            id=installment_id,
+            purchase__customer=user,
+            status='due'
+        ).first()
 
         if not installment:
             return Response({"detail": "Installment not found or already paid."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Pass the installment to the serializer context
+        is_late = timezone.now() > installment.due_date
+        original_due = installment.due_amount
+
+        # Calculate 10% late fee if overdue
+        if is_late:
+            penalty = (original_due * Decimal('0.10')).quantize(Decimal('0.01'))
+            total_due = original_due + penalty
+        else:
+            penalty = Decimal('0.00')
+            total_due = original_due
+
         serializer = PayInstallmentSerializer(data=request.data, context={'installment': installment})
 
         if serializer.is_valid():
-            # Apply payment logic here
             amount = serializer.validated_data['amount']
+
+            # Rule: Must pay full amount + penalty if late
+            if is_late and amount < total_due:
+                return Response(
+                    {"detail": f"Late payment! You must pay the full amount including penalty: ৳{total_due}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Rule: Do not allow overpayment
+            if amount > total_due:
+                return Response(
+                    {"detail": f"You cannot pay more than the required amount: ৳{total_due}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update installment
             installment.paid_amount += amount
             installment.due_amount -= amount
+            if is_late:
+                installment.late_fee = penalty
 
             if installment.due_amount <= 0:
                 installment.status = 'paid'
                 installment.payment_date = timezone.now()
 
             installment.save()
-            
-            # Check if all installments for the purchase are paid
-            all_paid = not Installment.objects.filter(purchase=installment.purchase, status='due').exists()
 
-            if all_paid:
-                # Mark the purchase as paid
+            # If all installments for this purchase are paid, mark purchase as paid
+            if not installment.purchase.installments.filter(status='due').exists():
                 purchase = installment.purchase
                 purchase.status = 'paid'
                 purchase.save()
@@ -94,6 +126,7 @@ class PayInstallmentView(APIView):
             return Response({"detail": "Payment successful."}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class NextDueInstallmentView(APIView):
     permission_classes = [IsAuthenticated]
@@ -181,11 +214,8 @@ class GlobalDashboardSummaryView(APIView):
         })
 
 
-from django.contrib.auth import get_user_model     
-User = get_user_model()
-from django.http import JsonResponse
-from rest_framework.decorators import api_view
 
+User = get_user_model()
 class UserStatsAPIView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
