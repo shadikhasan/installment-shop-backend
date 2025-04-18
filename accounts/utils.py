@@ -19,4 +19,4 @@ def send_otp_to_user(user):
     # Send OTP to the user's email
     subject = 'Your OTP Code'
     message = f'Your OTP code is: {otp_code}. It will expire in 10 minutes.'
-    send_mail(subject, message, 'youremail@example.com', [user.email])
+    send_mail(subject, message, 'shadik.sk420@gmail.com', [user.email])

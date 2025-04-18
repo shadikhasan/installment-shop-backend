@@ -26,10 +26,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'rest_framework',
+    'django_celery_results',
     'utils',
     'myapp',
     'accounts',
-    'rest_framework',
 ]
 
 AUTH_USER_MODEL = 'accounts.Customer'
@@ -154,14 +155,18 @@ SIMPLE_JWT = {
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'your-email@example.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'your-email-password')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'shadik.sk420@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'yktqaaumcxxbqkra')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 
 # Celery settings
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://127.0.0.1:6379')
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'
+
+# Celery Result Backend
+CELERY_RESULT_BACKEND = ('django-db')  # Store results in the database
 
 # Celery Beat
 INSTALLED_APPS += ['django_celery_beat']
