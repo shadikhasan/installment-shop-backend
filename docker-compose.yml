@@ -1,42 +1,47 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  # Django application service
-  django_app:
-    build: .  # Build the Docker image from the current directory
+  django:
+    build: .
+    container_name: django_app
     command: >
       sh -c "
-      python manage.py wait_for_db &&
-      python manage.py makemigrations &&
       python manage.py migrate &&
-      python manage.py runserver 0.0.0.0:8000
-      "
-    ports:
-      - "8000:8000"  # Expose port 8000 on the host and map it to port 8000 in the container
+      python manage.py runserver 0.0.0.0:8000"
     volumes:
-      - my_django_app_data:/django_app  # Mount a named volume to /app in the container
-    environment:
-      - DB_HOST=postgres_service  # Updated database service name
-      - DB_NAME=testdb
-      - DB_USER=postgres
-      - DB_PASS=ss
-      - SECRET_KEY=django-insecure-n7oy_o1yn!=izgniso1*%)1^#vtg49c0%h3lg%j-q$!b1t%x$k
+      - .:/django_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
     depends_on:
-      - postgres_service  # Ensure the postgres_service starts before the django_app service
+      - redis
 
-  # PostgreSQL database service
-  postgres_service:
-    image: postgres:alpine  # Use the latest PostgreSQL Docker image
-    environment:
-      POSTGRES_DB: testdb  # Database name for PostgreSQL
-      POSTGRES_USER: postgres  # Database user for PostgreSQL
-      POSTGRES_PASSWORD: ss  # Password for the PostgreSQL user
-    ports:
-      - "5432:5432"  # Expose port 5432 on the host and map it to port 5432 in the container
+  celery:
+    build: .
+    container_name: celery_worker
+    command: celery -A core worker --loglevel=info
     volumes:
-      - my_postgres_data:/var/lib/postgresql/data  # Mount a volume for persistent PostgreSQL data storage
+      - .:/django_app
+    env_file:
+      - .env
+    depends_on:
+      - redis
 
-# Define named volumes for persistent storage
-volumes:
-  my_django_app_data:
-  my_postgres_data:
+  celery-beat:
+    build: .
+    container_name: celery_beat
+    command: celery -A core beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/django_app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7
+    container_name: redis_server
+    ports:
+      - "6379:6379"
+    restart: always
