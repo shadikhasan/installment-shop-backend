@@ -8,117 +8,10 @@ from myapp.models import Installment, Purchase
 from collections import defaultdict 
 from django.utils.timezone import now
 
-class WeeklyReportView(APIView):
-    permission_classes = [IsAdminUser]
-
-    def get(self, request):
-        start = timezone.now() - timedelta(days=7)
-        
-        # Get installments with recent payments
-        installments = Installment.objects.filter(payment_date__gte=start)
-
-        report_data = []
-
-        for installment in installments:
-            purchase = installment.purchase
-            customer = purchase.customer
-
-            # Total paid in last 7 days
-            total_paid = Installment.objects.filter(
-                purchase=purchase,
-                payment_date__gte=start
-            ).aggregate(total_paid=Sum('paid_amount'))['total_paid'] or 0
-
-            # Total due overall (not limited by payment date)
-            total_due = Installment.objects.filter(
-                purchase=purchase
-            ).aggregate(total_due=Sum('due_amount'))['total_due'] or 0
-
-            # Purchase summary
-            purchase_data = Purchase.objects.filter(
-                customer=customer,
-                purchase_date__gte=start
-            ).aggregate(
-                total_purchases=Sum('total_price'),
-                total_items=Sum('quantity')
-            )
-
-            customer_report = {
-                'customer_id': customer.id,
-                'customer_username': customer.username,
-                'customer_name': f"{customer.first_name} {customer.last_name}",
-                'customer_email': customer.email,
-                'purchase_data': purchase_data,
-                'installment_data': {
-                    'total_paid': total_paid,
-                    'total_due': total_due,
-                },
-                'purchase_id': purchase.id,
-                'installment_number': installment.installment_number,
-                'paid_amount': installment.paid_amount,
-                'due_amount': installment.due_amount,
-                'status': installment.status,
-            }
-
-            report_data.append(customer_report)
-
-        return Response(report_data)
-
-class MonthlyReportView(APIView):
-    permission_classes = [IsAdminUser]
-
-    def get(self, request):
-        start = timezone.now() - timedelta(days=30)
-        
-        # Get installments with recent payments
-        installments = Installment.objects.filter(payment_date__gte=start)
-
-        report_data = []
-
-        for installment in installments:
-            purchase = installment.purchase
-            customer = purchase.customer
-
-            # Total paid in last 7 days
-            total_paid = Installment.objects.filter(
-                purchase=purchase,
-                payment_date__gte=start
-            ).aggregate(total_paid=Sum('paid_amount'))['total_paid'] or 0
-
-            # Total due overall (not limited by payment date)
-            total_due = Installment.objects.filter(
-                purchase=purchase
-            ).aggregate(total_due=Sum('due_amount'))['total_due'] or 0
-
-            # Purchase summary
-            purchase_data = Purchase.objects.filter(
-                customer=customer,
-                purchase_date__gte=start
-            ).aggregate(
-                total_purchases=Sum('total_price'),
-                total_items=Sum('quantity')
-            )
-
-            customer_report = {
-                'customer_id': customer.id,
-                'customer_username': customer.username,
-                'customer_name': f"{customer.first_name} {customer.last_name}",
-                'customer_email': customer.email,
-                'purchase_data': purchase_data,
-                'installment_data': {
-                    'total_paid': total_paid,
-                    'total_due': total_due,
-                },
-                'purchase_id': purchase.id,
-                'installment_number': installment.installment_number,
-                'paid_amount': installment.paid_amount,
-                'due_amount': installment.due_amount,
-                'status': 'Paid' if installment.due_amount == 0 else 'Due',
-            }
-
-            report_data.append(customer_report)
-
-        return Response(report_data)
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAdminUser
+from django.contrib.auth import get_user_model
+from .serializers import UserPaymentSummarySerializer
 
 class MonthlySummaryChartView(APIView):
     permission_classes = [IsAdminUser]
@@ -151,15 +44,11 @@ class MonthlySummaryChartView(APIView):
             datasets['total_due'].append(installments.aggregate(Sum('due_amount'))['due_amount__sum'] or 0)
 
         return Response({
+
             'labels': labels,
             'datasets': datasets
         })
 
-
-from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAdminUser
-from django.contrib.auth import get_user_model
-from .serializers import UserPaymentSummarySerializer
 
 User = get_user_model()
 
