@@ -11,12 +11,16 @@ class ProductAdmin(admin.ModelAdmin):
 # Register Purchase model
 @admin.register(Purchase)
 class PurchaseAdmin(admin.ModelAdmin):
-    list_display = [field.name for field in Purchase._meta.fields]
+    list_display = [
+        'id', 'customer', 'product', 'quantity', 'purchase_date',
+        'total_price', 'first_installment_amount', 'installment_count', 'status'
+    ]
     list_select_related = ('customer', 'product')
     search_fields = ('customer__username', 'customer__email', 'product__name')
-    list_filter = ('purchase_date', 'installment_count')
+    list_filter = ('purchase_date', 'installment_count', 'status')
     date_hierarchy = 'purchase_date'
     ordering = ('-purchase_date',)
+
     
 
 # Register Installment model

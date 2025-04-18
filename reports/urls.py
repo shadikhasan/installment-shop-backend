@@ -10,4 +10,6 @@ urlpatterns = [
     
     path('chart/summary/', views.MonthlySummaryChartView.as_view()),
 
+    path('payment-summary/weekly/', UserPaymentSummaryWeeklyListView.as_view(), name='payment-summary-weekly'),
+    path('payment-summary/monthly/', UserPaymentSummaryMonthlyListView.as_view(), name='payment-summary-monthly'),
 ]

@@ -14,48 +14,55 @@ class WeeklyReportView(APIView):
     def get(self, request):
         start = timezone.now() - timedelta(days=7)
         
-        # Get distinct customers from Installments within the last 7 days
+        # Get installments with recent payments
         installments = Installment.objects.filter(payment_date__gte=start)
-        
-        # Prepare report data
+
         report_data = []
-        
+
         for installment in installments:
-            # Access related purchase and customer
             purchase = installment.purchase
             customer = purchase.customer
-            
-            # Aggregate Installment data
-            installment_data = Installment.objects.filter(purchase=purchase, payment_date__gte=start).aggregate(
-                total_paid=Sum('paid_amount'),
-                total_due=Sum('due_amount')
-            )
-            
-            # Aggregate Purchase data
-            purchase_data = Purchase.objects.filter(customer=customer, purchase_date__gte=start).aggregate(
+
+            # Total paid in last 7 days
+            total_paid = Installment.objects.filter(
+                purchase=purchase,
+                payment_date__gte=start
+            ).aggregate(total_paid=Sum('paid_amount'))['total_paid'] or 0
+
+            # Total due overall (not limited by payment date)
+            total_due = Installment.objects.filter(
+                purchase=purchase
+            ).aggregate(total_due=Sum('due_amount'))['total_due'] or 0
+
+            # Purchase summary
+            purchase_data = Purchase.objects.filter(
+                customer=customer,
+                purchase_date__gte=start
+            ).aggregate(
                 total_purchases=Sum('total_price'),
                 total_items=Sum('quantity')
             )
-            
-            # Combine the data into a dictionary
+
             customer_report = {
                 'customer_id': customer.id,
                 'customer_username': customer.username,
-                'customer_name': customer.first_name + ' ' + customer.last_name,
+                'customer_name': f"{customer.first_name} {customer.last_name}",
                 'customer_email': customer.email,
                 'purchase_data': purchase_data,
-                'installment_data': installment_data,
+                'installment_data': {
+                    'total_paid': total_paid,
+                    'total_due': total_due,
+                },
                 'purchase_id': purchase.id,
                 'installment_number': installment.installment_number,
                 'paid_amount': installment.paid_amount,
                 'due_amount': installment.due_amount,
                 'status': installment.status,
             }
-            
-            report_data.append(customer_report)
-        
-        return Response(report_data)
 
+            report_data.append(customer_report)
+
+        return Response(report_data)
 
 class MonthlyReportView(APIView):
     permission_classes = [IsAdminUser]
@@ -63,49 +70,55 @@ class MonthlyReportView(APIView):
     def get(self, request):
         start = timezone.now() - timedelta(days=30)
         
-        # Get distinct customers from Installments within the last 7 days
+        # Get installments with recent payments
         installments = Installment.objects.filter(payment_date__gte=start)
-        
-        # Prepare report data
+
         report_data = []
-        
+
         for installment in installments:
-            # Access related purchase and customer
             purchase = installment.purchase
             customer = purchase.customer
-            
-            # Aggregate Installment data
-            installment_data = Installment.objects.filter(purchase=purchase, payment_date__gte=start).aggregate(
-                total_paid=Sum('paid_amount'),
-                total_due=Sum('due_amount')
-            )
-            
-            # Aggregate Purchase data
-            purchase_data = Purchase.objects.filter(customer=customer, purchase_date__gte=start).aggregate(
+
+            # Total paid in last 7 days
+            total_paid = Installment.objects.filter(
+                purchase=purchase,
+                payment_date__gte=start
+            ).aggregate(total_paid=Sum('paid_amount'))['total_paid'] or 0
+
+            # Total due overall (not limited by payment date)
+            total_due = Installment.objects.filter(
+                purchase=purchase
+            ).aggregate(total_due=Sum('due_amount'))['total_due'] or 0
+
+            # Purchase summary
+            purchase_data = Purchase.objects.filter(
+                customer=customer,
+                purchase_date__gte=start
+            ).aggregate(
                 total_purchases=Sum('total_price'),
                 total_items=Sum('quantity')
             )
-            
-            # Combine the data into a dictionary
+
             customer_report = {
                 'customer_id': customer.id,
                 'customer_username': customer.username,
-                'customer_name': customer.first_name + ' ' + customer.last_name,
+                'customer_name': f"{customer.first_name} {customer.last_name}",
                 'customer_email': customer.email,
                 'purchase_data': purchase_data,
-                'installment_data': installment_data,
+                'installment_data': {
+                    'total_paid': total_paid,
+                    'total_due': total_due,
+                },
                 'purchase_id': purchase.id,
                 'installment_number': installment.installment_number,
                 'paid_amount': installment.paid_amount,
                 'due_amount': installment.due_amount,
-                'status': installment.status,
+                'status': 'Paid' if installment.due_amount == 0 else 'Due',
             }
-            
+
             report_data.append(customer_report)
-        
+
         return Response(report_data)
-    
-    
 
 class MonthlySummaryChartView(APIView):
     permission_classes = [IsAdminUser]
@@ -141,3 +154,34 @@ class MonthlySummaryChartView(APIView):
             'labels': labels,
             'datasets': datasets
         })
+
+
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAdminUser
+from django.contrib.auth import get_user_model
+from .serializers import UserPaymentSummarySerializer
+
+User = get_user_model()
+
+class UserPaymentSummaryWeeklyListView(ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserPaymentSummarySerializer
+    permission_classes = [IsAdminUser]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['range'] = 'weekly'  # We pass 'weekly' to filter purchases/installments
+        return context
+
+
+class UserPaymentSummaryMonthlyListView(ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserPaymentSummarySerializer
+    permission_classes = [IsAdminUser]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['range'] = 'monthly'  # We pass 'monthly' to filter purchases/installments
+        return context
+
+    
