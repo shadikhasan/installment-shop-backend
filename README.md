@@ -1,4 +1,4 @@
-# Installment Shop Backend
+# Installment Shop Backend (version 1.0)
 
 Installment Shop Backend is a robust API for an e-commerce platform that enables customers to purchase products with flexible installment payment plans. It features secure OTP-based registration, JWT authentication, installment tracking, email notifications, and comprehensive admin reports. Built with Django REST Framework (DRF), this project is ideal for developers looking to explore or contribute to a scalable e-commerce backend.
 
